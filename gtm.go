@@ -52,6 +52,7 @@ type Options struct {
 	Unmarshal           DataUnmarshaller
 	Log                 *log.Logger
 	MaxBackoffTime      time.Duration
+	IncludeMigrate      bool // should internal `fromMigrate` oplog entries be counted
 }
 
 type Op struct {
@@ -648,7 +649,12 @@ func LastOpTimestamp(session *mgo.Session, options *Options) bson.MongoTimestamp
 }
 
 func GetOpLogQuery(session *mgo.Session, after bson.MongoTimestamp, options *Options) *mgo.Query {
-	query := bson.M{"ts": bson.M{"$gt": after}, "fromMigrate": bson.M{"$exists": false}}
+	var query bson.M
+	if options.IncludeMigrate {
+		query = bson.M{"ts": bson.M{"$gt": after}}
+	} else {
+		query = bson.M{"ts": bson.M{"$gt": after}, "fromMigrate": bson.M{"$exists": false}}
+	}
 	collection := OpLogCollection(session, options)
 	return collection.Find(query).LogReplay().Sort("$natural")
 }
